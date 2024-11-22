@@ -23,6 +23,6 @@
     },
     "typeRoots": ["node_modules/@types", "src/types"]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/components/analysis/TextToSpeech.tsx"],
   "exclude": ["node_modules"]
 }
