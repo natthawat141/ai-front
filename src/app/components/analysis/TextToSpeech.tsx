@@ -28,7 +28,7 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
     if (autoPlay) {
       handleSpeak()
     }
-    
+
     return () => {
       if (speechRef.current) {
         window.speechSynthesis.cancel()
@@ -38,7 +38,7 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
 
   const handleSpeak = () => {
     if (!text || typeof window === 'undefined') return
-    
+
     if (isPlaying) {
       window.speechSynthesis.cancel()
       setIsPlaying(false)
@@ -54,7 +54,7 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
     speech.onstart = () => {
       setIsPlaying(true)
     }
-    
+
     speech.onend = () => {
       setIsPlaying(false)
       onComplete?.()
@@ -132,9 +132,9 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
                     <h3 className="text-white text-sm font-medium">AI Assistant</h3>
                     <div className="flex items-center space-x-3">
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"/>
-                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse delay-75"/>
-                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse delay-150"/>
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse delay-75" />
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse delay-150" />
                       </div>
                       <button
                         onClick={toggleExpanded}
@@ -151,9 +151,9 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
                 </div>
 
                 {/* Avatar Container */}
-                <div className={`mt-12 flex-1 flex items-center justify-center ${isExpanded ? 'scale-150' : ''}`}>
-                  <div className="relative w-64 aspect-video rounded-lg overflow-hidden">
-                    <img 
+                <div className={`mt-8 flex-1 flex items-center justify-center ${isExpanded ? 'scale-170' : 'scale-140'}`}>
+                  <div className="relative w-80 aspect-video rounded-lg overflow-hidden lg:w-[600px]">
+                    <img
                       src="/img/video-unscreen.gif"
                       alt="Speaking Animation"
                       className="w-full h-full object-cover"
@@ -162,9 +162,10 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
                   </div>
                 </div>
 
+
                 {/* Text Content */}
                 {isExpanded && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="mt-8 p-6 bg-black/20 rounded-xl"
@@ -177,14 +178,14 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
                 <div className="mt-3 flex items-center justify-between text-xs text-white/70">
                   <span>AI Voice Active</span>
                   <span className="flex items-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 mr-1"/>
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 mr-1" />
                     Speaking
                   </span>
                 </div>
               </div>
 
               {/* Background Gradient Animation */}
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-cyan-500/10 animate-gradient"/>
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-cyan-500/10 animate-gradient" />
             </div>
           </motion.div>
         )}
