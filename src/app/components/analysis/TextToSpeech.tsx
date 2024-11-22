@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiVolume2, FiVolumeX } from 'react-icons/fi'
-const { useSpeechSynthesis } = require('react-speech-kit') as any;
+import { useSpeechSynthesis } from 'react-speech-kit'
 
 interface TextToSpeechProps {
   text: string
