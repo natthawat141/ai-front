@@ -1,0 +1,1070 @@
+# stock_comparison.py
+from typing import List, Dict, Optional
+import yfinance as yf
+import numpy as np
+from datetime import datetime, timedelta
+import pandas as pd
+
+class StockComparison:
+    def __init__(self):
+        self.cache = {}  # สำหรับเก็บข้อมูลหุ้นที่ดึงมาแล้ว
+
+    def get_peer_comparison_data(self, 
+                               main_symbol: str, 
+                               peer_symbols: List[str], 
+                               period: str = '1y') -> Dict:
+        """
+        ดึงข้อมูลราคาหุ้นของบริษัทหลักและบริษัทที่คล้ายกัน
+        """
+        try:
+            # รวมทุก symbol ที่ต้องการดึงข้อมูล
+            all_symbols = [main_symbol] + peer_symbols
+            comparison_data = {
+                'dates': [],
+                'prices': {},
+                'normalized_prices': {},
+                'performance_metrics': {},
+                'correlation_matrix': None
+            }
+
+            # ดึงข้อมูลทุกหุ้น
+            stock_data = {}
+            for symbol in all_symbols:
+                if symbol in self.cache:
+                    data = self.cache[symbol]
+                else:
+                    stock = yf.Ticker(symbol)
+                    data = stock.history(period=period)
+                    self.cache[symbol] = data
+                stock_data[symbol] = data
+
+            # สร้าง DataFrame รวม
+            merged_data = pd.DataFrame()
+            for symbol, data in stock_data.items():
+                if not data.empty:
+                    merged_data[symbol] = data['Close']
+
+            # คำนวณ normalized prices (เริ่มที่ 100)
+            normalized_data = merged_data.div(merged_data.iloc[0]) * 100
+
+            # คำนวณ correlation matrix
+            correlation_matrix = merged_data.corr()
+
+            # คำนวณ performance metrics
+            performance_metrics = {}
+            for symbol in all_symbols:
+                if symbol in merged_data.columns:
+                    prices = merged_data[symbol]
+                    returns = prices.pct_change().dropna()
+                    performance_metrics[symbol] = {
+                        'total_return': ((prices.iloc[-1] / prices.iloc[0]) - 1) * 100,
+                        'volatility': returns.std() * np.sqrt(252) * 100,
+                        'max_drawdown': ((prices / prices.cummax()) - 1).min() * 100
+                    }
+
+            # เตรียมข้อมูลสำหรับส่งกลับ
+            comparison_data['dates'] = merged_data.index.strftime('%Y-%m-%d').tolist()
+            comparison_data['prices'] = merged_data.to_dict('dict')
+            comparison_data['normalized_prices'] = normalized_data.to_dict('dict')
+            comparison_data['performance_metrics'] = performance_metrics
+            comparison_data['correlation_matrix'] = correlation_matrix.to_dict('dict')
+
+            return comparison_data
+
+        except Exception as e:
+            print(f"Error in get_peer_comparison_data: {e}")
+            return None # set_smart_analyzer.py
+
+import re
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+import yfinance as yf
+import requests
+
+class SetSmartAnalyzer:
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key
+        
+    def _call_typhoon_api(self, prompt: str) -> Optional[Dict]:
+        """
+        เรียกใช้ Typhoon API ด้วย prompt ที่กำหนด
+        """
+        print("\nเรียกใช้งาน Typhoon API...")
+        
+        endpoint = 'https://api.opentyphoon.ai/v1/chat/completions'
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "typhoon-v1.5-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": 1024,
+            "top_p": 0.9,
+            "top_k": 0,
+            "repetition_penalty": 1.05,
+            "min_p": 0
+        }
+
+        try:
+            response = requests.post(endpoint, json=payload, headers=headers)
+            response.raise_for_status()
+            print("เรียกใช้งาน Typhoon API สำเร็จ")
+            return response.json()
+        except Exception as e:
+            print(f"API call error: {e}")
+            return None
+
+    def get_smart_symbols(self) -> List[str]:
+        """
+        ดึงรายชื่อหุ้นใน SET SMART
+        """
+        print("\nกำลังดึงรายชื่อหุ้นใน SET SMART...")
+        
+        if not self.api_key:
+            print("ไม่สามารถดึงข้อมูลได้เนื่องจากไม่ได้ตั้งค่า Typhoon API Key")
+            return []
+
+        prompt = """กรุณาระบุรายชื่อหุ้นที่อยู่ใน SET SMART ล่าสุด โดยแสดงเป็นรูปแบบ:
+        ชื่อย่อหลักทรัพย์ (.BK) | ชื่อบริษัท
+        เช่น
+        AOT.BK | บริษัท ท่าอากาศยานไทย จำกัด (มหาชน)
+        PTT.BK | บริษัท ปตท. จำกัด (มหาชน)
+        """
+
+        response = self._call_typhoon_api(prompt)
+        if response:
+            content = response['choices'][0]['message']['content']
+            symbols = self._extract_symbols(content)
+            valid_symbols = self._validate_symbols(symbols)
+            
+            print(f"\nพบหุ้น SET SMART จำนวน {len(valid_symbols)} ตัว")
+            return valid_symbols
+        return []
+
+    def _extract_symbols(self, content: str) -> List[str]:
+        """
+        แยกรายชื่อหุ้นจากข้อความ
+        """
+        lines = content.strip().split('\n')
+        symbols = []
+        
+        for line in lines:
+            match = re.search(r'([A-Z]+\.BK)', line)
+            if match:
+                symbols.append(match.group(1))
+        
+        return symbols
+
+    def _validate_symbols(self, symbols: List[str]) -> List[str]:
+        """
+        ตรวจสอบความถูกต้องของ symbol
+        """
+        valid_symbols = []
+        for symbol in symbols:
+            try:
+                stock = yf.Ticker(symbol)
+                info = stock.info
+                if info and 'regularMarketPrice' in info:
+                    valid_symbols.append(symbol)
+            except:
+                continue
+        return valid_symbols
+
+    def analyze_smart_stocks(self) -> Dict[str, Any]:
+        """
+        วิเคราะห์หุ้นทั้งหมดใน SET SMART
+        """
+        smart_symbols = self.get_smart_symbols()
+        results = {}
+        
+        for symbol in smart_symbols:
+            try:
+                stock = yf.Ticker(symbol)
+                hist = stock.history(period="1y")
+                info = stock.info
+                
+                analysis = {
+                    'symbol': symbol,
+                    'company_name': info.get('longName', 'N/A'),
+                    'sector': info.get('sector', 'N/A'),
+                    'market_cap': info.get('marketCap', 0),
+                    'current_price': info.get('regularMarketPrice', 0),
+                    'pe_ratio': info.get('trailingPE', 0),
+                    'pb_ratio': info.get('priceToBook', 0),
+                    'dividend_yield': info.get('dividendYield', 0),
+                    'fifty_two_week': {
+                        'high': info.get('fiftyTwoWeekHigh', 0),
+                        'low': info.get('fiftyTwoWeekLow', 0)
+                    },
+                    'volume': info.get('volume', 0),
+                }
+                
+                if not hist.empty:
+                    analysis['price_history'] = {
+                        'dates': hist.index.strftime('%Y-%m-%d').tolist(),
+                        'prices': hist['Close'].tolist(),
+                        'volumes': hist['Volume'].tolist()
+                    }
+                
+                results[symbol] = analysis
+                
+            except Exception as e:
+                print(f"ไม่สามารถวิเคราะห์ {symbol}: {e}")
+                continue
+                
+        return {
+            'timestamp': datetime.now().isoformat(),
+            'total_stocks': len(results),
+            'analyses': results
+        }
+
+        # services.py
+
+import os
+from typing import Optional, Dict, Any, List
+import numpy as np
+from datetime import datetime
+import re
+import requests
+import fitz  # PyMuPDF
+import io
+from PIL import Image
+import pytesseract
+from transformers import pipeline
+from pythainlp.tokenize import word_tokenize
+from pythainlp.util import normalize
+from scipy import stats
+import pandas as pd
+
+from models import FinancialData, FinancialMetrics
+from market_data import MarketData
+
+class AdvancedFinancialAnalyzer:
+    """
+    คลาสหลักสำหรับการวิเคราะห์ทางการเงินขั้นสูง
+    """
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key  # API Key สำหรับ Typhoon API
+        print("กำลังโหลดโมเดลจำแนกประเภท...")
+
+        # โหลดโมเดลสำหรับการจำแนกประเภทด้วย Zero-Shot Classification
+        self.classifier = pipeline(
+            "zero-shot-classification",
+            model="joeddav/xlm-roberta-large-xnli",
+            tokenizer="joeddav/xlm-roberta-large-xnli",
+            device=-1  # ใช้ CPU (-1)
+        )
+        self.market_data = MarketData()  # สร้างอินสแตนซ์ของ MarketData
+
+    def extract_text_from_pdf(self, file_path: str) -> Optional[str]:
+        """
+        ดึงและทำความสะอาดข้อความจากไฟล์ PDF
+        """
+        print(f"\nกำลังดึงข้อความจากไฟล์ PDF: {file_path}")
+        try:
+            text = ""
+            # เปิดไฟล์ PDF
+            with fitz.open(file_path) as pdf:
+                for page_num in range(len(pdf)):
+                    page = pdf[page_num]
+                    page_text = page.get_text()
+                    if page_text.strip():
+                        # ถ้ามีข้อความอยู่แล้ว
+                        text += page_text
+                    else:
+                        # ถ้าไม่มีข้อความ ให้ใช้ OCR
+                        pix = page.get_pixmap()
+                        img_data = pix.tobytes("png")
+                        img = Image.open(io.BytesIO(img_data))
+                        ocr_text = pytesseract.image_to_string(img, lang='tha+eng')
+                        text += ocr_text
+            # ทำความสะอาดข้อความ
+            cleaned_text = self._clean_text(text) if text else None
+            print("\nข้อความหลังทำความสะอาด:")
+            print(cleaned_text[:500])  # แสดง 500 ตัวอักษรแรก
+            return cleaned_text
+        except Exception as e:
+            print(f"PDF extraction error: {e}")
+            return None
+
+    def _clean_text(self, text: str) -> str:
+        """
+        ทำความสะอาดและปรับปรุงข้อความ โดยรักษาข้อมูลทางการเงินที่สำคัญ
+        """
+        print("\nกำลังทำความสะอาดข้อความ...")
+        # ลบช่องว่างเกินความจำเป็น
+        text = re.sub(r'\s+', ' ', text)
+        # รักษาตัวเลขและสัญลักษณ์ทางการเงิน และตัวอักษรภาษาไทย
+        text = re.sub(r'[^\w\s$.,%-]', '', text, flags=re.UNICODE)
+        # ปรับรูปแบบตัวเลข
+        text = re.sub(r'(\d),(\d)', r'\1\2', text)
+        print("ทำความสะอาดข้อความสำเร็จ")
+        return text.strip()
+
+    def find_stock_symbol(self, text: str) -> Optional[str]:
+        """
+        ค้นหาสัญลักษณ์หุ้นจากข้อความโดยใช้ Typhoon API
+        """
+        print("\nกำลังค้นหาสัญลักษณ์หุ้นจากข้อความ...")
+        if not self.api_key:
+            print("ไม่สามารถค้นหาสัญลักษณ์หุ้นได้เนื่องจากไม่ได้ตั้งค่า Typhoon API Key")
+            return None
+
+        # สร้าง prompt สำหรับส่งไปยัง Typhoon API
+        prompt = f"จากข้อความต่อไปนี้ คุณทราบสัญลักษณ์หุ้นของบริษัทนี้ใน yfinance หรือไม่:\n\n{text[:2000]}"
+        response = self._call_typhoon_api(prompt)
+        if response:
+            # ดึงคำตอบจาก API
+            answer = response['choices'][0]['message']['content']
+            print(f"\nคำตอบจาก Typhoon API:\n{answer}")
+            # ใช้ Regular Expression เพื่อค้นหาสัญลักษณ์หุ้น
+            symbol_match = re.search(r'สัญลักษณ์หุ้น.*?คือ\s*"?([A-Z]{1,5}(?:\.BK)?)"?', answer)
+            if symbol_match:
+                symbol = symbol_match.group(1)
+                # เพิ่ม ".BK" หากเป็นหุ้นไทยและไม่มีนามสกุล
+                if '.BK' not in symbol and symbol.isupper():
+                    symbol += '.BK'
+                print(f"\nพบสัญลักษณ์หุ้น: {symbol}")
+                return symbol
+            else:
+                print("ไม่สามารถดึงสัญลักษณ์หุ้นจากคำตอบของ Typhoon")
+                return None
+        else:
+            return None
+
+    def analyze_company(self, text: str) -> (str, Dict[str, Any]):
+        """
+        วิเคราะห์บริษัทอย่างครบถ้วนจากข้อความที่ให้มา
+        """
+        # ค้นหาสัญลักษณ์หุ้น
+        symbol = self.find_stock_symbol(text)
+        if not symbol:
+            print("ไม่สามารถระบุสัญลักษณ์หุ้นได้")
+            stock_data = None
+        else:
+            # ดึงข้อมูลตลาดหุ้น
+            stock_data = self.market_data.get_stock_data(symbol)
+            if stock_data is None:
+                print(f"ไม่สามารถดึงข้อมูลหุ้น {symbol} ได้")
+
+        # จำแนกประเภทธุรกิจ
+        industry = self._classify_industry(text)
+
+        print(f"\nบริษัทนี้อยู่ในอุตสาหกรรม: {industry}")
+        print("คุณควรศึกษาปัจจัยเฉพาะของอุตสาหกรรมนี้เพิ่มเติมเพื่อการตัดสินใจลงทุน")
+
+        # คำนวณตัวชี้วัดทางการเงินถ้ามีข้อมูลหุ้น
+        if stock_data:
+            financial_metrics = self._calculate_financial_metrics(stock_data)
+        else:
+            financial_metrics = None
+
+        # วิเคราะห์ปัจจัยเฉพาะของอุตสาหกรรม
+        industry_analysis = self._analyze_industry_specifics(text, industry, symbol)
+
+        # รับคำแนะนำจาก AI
+        ai_analysis = self._get_ai_analysis(text, industry, financial_metrics)
+
+        return industry, {
+            'symbol': symbol,
+            'financial_metrics': financial_metrics,
+            'industry_analysis': industry_analysis,
+            'ai_recommendations': ai_analysis,
+            'stock_data': stock_data
+        }
+
+    def _classify_industry(self, text: str) -> str:
+        """
+        จำแนกประเภทธุรกิจของบริษัทจากข้อความโดยใช้ Typhoon API และ Zero-Shot Classification
+        """
+        print("\nกำลังสรุปข้อความเพื่อจำแนกประเภทอุตสาหกรรม...")
+        # สรุปข้อความโดยใช้ Typhoon API
+        summary = self._summarize_with_typhoon(text)
+        if not summary:
+            summary = text[:1024]  # ใช้ข้อความเดิมถ้าสรุปไม่สำเร็จ
+        print(f"\nสรุปข้อความ:\n{summary}")
+
+        # ดึงคำที่เกี่ยวข้องกับอุตสาหกรรมจากข้อความ
+        dynamic_labels = self._extract_industries_from_text(summary)
+        if not dynamic_labels:
+            dynamic_labels = ['ธนาคาร', 'ก่อสร้าง', 'เทคโนโลยี', 'สุขภาพ', 'พลังงาน', 'อสังหาริมทรัพย์', 'การขนส่ง', 'การสื่อสาร', 'การเกษตร', 'อาหาร', 'การท่องเที่ยว', 'ค้าปลีก', 'การผลิต', 'การเงิน', 'สื่อ', 'บันเทิง', 'เคมีภัณฑ์']
+
+        print(f"\nLabels สำหรับการจำแนกประเภท: {dynamic_labels}")
+
+        print("\nกำลังจำแนกประเภทอุตสาหกรรม...")
+        # ใช้โมเดล Zero-Shot Classification
+        result = self.classifier(summary, candidate_labels=dynamic_labels, hypothesis_template="นี่คือข้อความเกี่ยวกับ {}.")
+        industry = result['labels'][0]
+        print(f"\nประเภทอุตสาหกรรมที่จำแนกได้: {industry}")
+        return industry
+
+    def _summarize_with_typhoon(self, text: str) -> Optional[str]:
+        """
+        สรุปข้อความโดยใช้ Typhoon API
+        """
+        if not self.api_key:
+            print("ไม่สามารถสรุปข้อความด้วย Typhoon API ได้เนื่องจากไม่ได้ตั้งค่า API Key")
+            return None
+
+        prompt = f"กรุณาสรุปข้อความต่อไปนี้:\n\n{text[:2000]}"
+        response = self._call_typhoon_api(prompt)
+        if response:
+            summary = response['choices'][0]['message']['content'].strip()
+            return summary
+        else:
+            return None
+
+    def _extract_industries_from_text(self, text: str) -> List[str]:
+        """
+        สกัดคำที่เกี่ยวข้องกับอุตสาหกรรมจากข้อความโดยใช้ NLP
+        """
+        # ทำการตัดคำและลบคำซ้ำ
+        words = set(word_tokenize(normalize(text), engine='newmm'))
+
+        # คำที่เกี่ยวข้องกับประเภทธุรกิจทั่วไป
+        common_industry_terms = [
+            'ธนาคาร', 'ก่อสร้าง', 'เทคโนโลยี', 'สุขภาพ', 'พลังงาน', 'อสังหาริมทรัพย์',
+            'การขนส่ง', 'การสื่อสาร', 'การเกษตร', 'อาหาร', 'การท่องเที่ยว',
+            'ค้าปลีก', 'การผลิต', 'การเงิน', 'สื่อ', 'บันเทิง', 'เคมีภัณฑ์',
+            # เพิ่มเติมคำอื่น ๆ ที่เกี่ยวข้อง
+        ]
+
+        # สกัดคำที่ตรงกับประเภทธุรกิจ
+        extracted_industries = [word for word in words if word in common_industry_terms]
+
+        # ลบคำซ้ำและคืนค่าเป็นรายการ
+        return list(set(extracted_industries))
+
+    def _calculate_financial_metrics(self, stock_data: FinancialData) -> FinancialMetrics:
+        """
+        คำนวณตัวชี้วัดทางการเงินอย่างครอบคลุม
+        """
+        print("\nกำลังคำนวณตัวชี้วัดทางการเงิน...")
+        prices = stock_data.prices
+        returns = stock_data.returns
+
+        financial_metrics = FinancialMetrics(
+            basic_metrics=self._calculate_basic_metrics(stock_data),
+            technical_indicators=self._calculate_technical_indicators(prices),
+            risk_metrics=self._calculate_risk_metrics(returns),
+            statistical_metrics=self._calculate_statistical_metrics(returns)
+        )
+        print("\nคำนวณตัวชี้วัดทางการเงินสำเร็จ")
+        return financial_metrics
+
+    def _calculate_basic_metrics(self, stock_data: FinancialData) -> Dict[str, float]:
+        """
+        คำนวณอัตราส่วนทางการเงินพื้นฐาน
+        """
+        print(" - กำลังคำนวณอัตราส่วนทางการเงินพื้นฐาน...")
+        try:
+            current_price = stock_data.prices[-1]
+            basic_metrics = {
+                'price': current_price,
+                'market_cap': stock_data.market_cap,
+                'pe_ratio': self._safe_calc(lambda: current_price / self._get_eps(stock_data.symbol)),
+                'pb_ratio': self._safe_calc(lambda: current_price / self._get_book_value(stock_data.symbol)),
+                'roe': self._safe_calc(lambda: self._get_net_income(stock_data.symbol) / self._get_equity(stock_data.symbol))
+            }
+            print(f"\nอัตราส่วนทางการเงินพื้นฐาน: {basic_metrics}")
+            return basic_metrics
+        except Exception as e:
+            print(f"Error calculating basic metrics: {e}")
+            return {}
+
+    def _calculate_technical_indicators(self, prices: np.ndarray) -> Dict[str, Any]:
+        """
+        คำนวณตัวชี้วัดทางเทคนิคสำหรับการวิเคราะห์กราฟ
+        """
+        print(" - กำลังคำนวณตัวชี้วัดทางเทคนิค...")
+        try:
+            technical_indicators = {
+                'rsi': self._calculate_rsi(prices),
+                'macd': self._calculate_macd(prices),
+                'bollinger_bands': self._calculate_bollinger_bands(prices),
+                'moving_averages': {
+                    'ma20': np.mean(prices[-20:]),
+                    'ma50': np.mean(prices[-50:]),
+                    'ma200': np.mean(prices[-200:])
+                }
+            }
+            print(f"\nตัวชี้วัดทางเทคนิค: {technical_indicators}")
+            return technical_indicators
+        except Exception as e:
+            print(f"Error calculating technical indicators: {e}")
+            return {}
+
+    def _calculate_risk_metrics(self, returns: np.ndarray) -> Dict[str, float]:
+        """
+        คำนวณตัวชี้วัดความเสี่ยงและประสิทธิภาพการลงทุน
+        """
+        print(" - กำลังคำนวณตัวชี้วัดความเสี่ยง...")
+        try:
+            risk_metrics = {
+                'volatility': np.std(returns) * np.sqrt(252),
+                'var_95': np.percentile(returns, 5),
+                'cvar_95': np.mean(returns[returns <= np.percentile(returns, 5)]),
+                'sharpe_ratio': np.mean(returns) / np.std(returns) * np.sqrt(252),
+                'sortino_ratio': np.mean(returns) / np.std(returns[returns < 0]) * np.sqrt(252)
+            }
+            print(f"\nตัวชี้วัดความเสี่ยง: {risk_metrics}")
+            return risk_metrics
+        except Exception as e:
+            print(f"Error calculating risk metrics: {e}")
+            return {}
+
+    def _calculate_statistical_metrics(self, returns: np.ndarray) -> Dict[str, Any]:
+        """
+        คำนวณตัวชี้วัดทางสถิติสำหรับผลตอบแทน
+        """
+        print(" - กำลังคำนวณตัวชี้วัดสถิติ...")
+        try:
+            # ทดสอบความเป็นสถิติคงที่ (Stationarity)
+            adf_stat, adf_pvalue = stats.adfuller(returns)[:2]
+
+            # ทดสอบความเป็นปกติ (Normality)
+            shapiro_stat, shapiro_pvalue = stats.shapiro(returns)
+
+            statistical_metrics = {
+                'stationarity': {
+                    'adf_statistic': adf_stat,
+                    'adf_pvalue': adf_pvalue
+                },
+                'normality': {
+                    'shapiro_statistic': shapiro_stat,
+                    'shapiro_pvalue': shapiro_pvalue
+                },
+                'skewness': stats.skew(returns),
+                'kurtosis': stats.kurtosis(returns)
+            }
+            print(f"\nตัวชี้วัดสถิติ: {statistical_metrics}")
+            return statistical_metrics
+        except Exception as e:
+            print(f"Error calculating statistical metrics: {e}")
+            return {}
+
+    def _get_ai_analysis(self, text: str, industry: str, metrics: Optional[FinancialMetrics]) -> Dict[str, Any]:
+        """
+        รับการวิเคราะห์และคำแนะนำจาก AI โดยใช้ Typhoon API
+        """
+        if not self.api_key:
+            print("ไม่สามารถขอคำแนะนำจาก Typhoon API ได้เนื่องจากไม่ได้ตั้งค่า API Key")
+            return {}
+
+        print("\nกำลังขอคำแนะนำจาก Typhoon API...")
+        # สร้าง prompt สำหรับ Typhoon API
+        investment_factors_prompt = f"จากข้อมูลนี้ หากต้องการลงทุนในบริษัทนี้ ควรพิจารณาปัจจัยใดบ้างเพื่อทำการตัดสินใจในการลงทุน?"
+        indicators_prompt = f"สำหรับธุรกิจในอุตสาหกรรม {industry} กรุณาแนะนำตัวชี้วัดทางการเงินที่ควรศึกษาเพิ่มเติมในการประเมินการลงทุน"
+
+        # ดึงตัวเลขทางการเงินสำคัญจากข้อความ
+        financial_numbers = self.extract_financial_numbers(text)
+        print("\nตัวเลขทางการเงินที่ดึงได้จากข้อความ:")
+        print(financial_numbers)
+
+        # รวม prompt และข้อมูลทางการเงิน
+        trimmed_text = "\n".join(financial_numbers)[:2000]
+        full_prompt = f"""
+นี่คือข้อมูลทางการเงินที่สรุปแล้วจากเอกสาร:
+{trimmed_text}
+
+{investment_factors_prompt}
+
+{indicators_prompt}
+"""
+
+        # ส่งไปยัง Typhoon API
+        response = self._call_typhoon_api(full_prompt)
+
+        if response:
+            summary = response['choices'][0]['message']['content']
+            print(f"\nคำแนะนำจาก Typhoon API:\n{summary}")
+            return {
+                'summary': summary,
+                'confidence': response.get('confidence', 0.0),
+                'timestamp': datetime.now().isoformat()
+            }
+        else:
+            return {}
+
+    def extract_financial_numbers(self, text: str) -> List[str]:
+        """
+        สกัดตัวเลขทางการเงินสำคัญจากข้อความ
+        """
+        pattern = r'([ก-๙a-zA-Z ]+)\s+([\d,]+\.\d{2}|\d+,?\d*)'
+        matches = re.findall(pattern, text)
+        return [f"{item.strip()}: {value.strip()}" for item, value in matches]
+
+    def _call_typhoon_api(self, prompt: str) -> Optional[Dict]:
+        """
+        เรียกใช้ Typhoon API ด้วย prompt ที่กำหนด
+        """
+        print("\nเรียกใช้งาน Typhoon API...")
+        endpoint = 'https://api.opentyphoon.ai/v1/chat/completions'
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "typhoon-v1.5-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": 1024,
+            "top_p": 0.9,
+            "top_k": 0,
+            "repetition_penalty": 1.05,
+            "min_p": 0
+        }
+
+        try:
+            response = requests.post(endpoint, json=payload, headers=headers)
+            response.raise_for_status()
+            print("เรียกใช้งาน Typhoon API สำเร็จ")
+            return response.json()
+        except Exception as e:
+            print(f"API call error: {e}")
+            return None
+
+    def generate_investment_report(self, file_path: str) -> Dict[str, Any]:
+        """
+        สร้างรายงานการลงทุนแบบครบถ้วนจากไฟล์ PDF
+        """
+        text = self.extract_text_from_pdf(file_path)
+        if not text:
+            print("ไม่สามารถวิเคราะห์เอกสารได้")
+            return {"error": "ไม่สามารถวิเคราะห์เอกสารได้"}
+
+        try:
+            industry, analysis = self.analyze_company(text)
+            result = self._prepare_results(industry, analysis)
+            return result
+        except Exception as e:
+            print(f"เกิดข้อผิดพลาดในการวิเคราะห์: {e}")
+            return {"error": str(e)}
+
+    def _prepare_results(self, industry: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        เตรียมผลลัพธ์สำหรับส่งกลับไปยังผู้ใช้
+        """
+        symbol = analysis.get('symbol', 'N/A')
+        financial_metrics = analysis.get('financial_metrics', None)
+        industry_analysis = analysis.get('industry_analysis', {})
+        ai_recommendations = analysis.get('ai_recommendations', {})
+        stock_data = analysis.get('stock_data', None)
+
+        result = {
+            "symbol": symbol,
+            "industry": industry,
+            "ai_recommendations": ai_recommendations.get('summary', 'ไม่มีคำแนะนำ'),
+            "study_topics": industry_analysis.get('study_topics', []),
+            "peer_companies": industry_analysis.get('peer_companies', []),
+            "financial_metrics": financial_metrics,
+            "stock_data": {
+                "prices": stock_data.prices.tolist() if stock_data else [],
+                "dates": stock_data.dates.tolist() if stock_data else [],
+            }
+        }
+        return result
+
+    def chat_with_typhoon(self, message: str) -> str:
+        """
+        ส่งข้อความไปยัง Typhoon API และรับคำตอบ
+        """
+        if not self.api_key:
+            return "ไม่สามารถเชื่อมต่อกับ Typhoon API ได้เนื่องจากไม่ได้ตั้งค่า API Key"
+
+        prompt = message
+        response = self._call_typhoon_api(prompt)
+        if response:
+            answer = response['choices'][0]['message']['content']
+            return answer
+        else:
+            return "ไม่สามารถรับคำตอบจาก Typhoon API ได้"
+
+    # ----------------- ฟังก์ชัน Helper และฟังก์ชันเพิ่มเติม -----------------
+
+    def _safe_calc(self, func):
+        """
+        ดำเนินการคำนวณอย่างปลอดภัย
+        """
+        try:
+            return func()
+        except:
+            return None
+
+    def _get_eps(self, symbol: str) -> float:
+        """
+        ดึงค่า EPS สำหรับสัญลักษณ์หุ้น
+        """
+        # นี่เป็น placeholder สำหรับการดึงข้อมูลจริง
+        return 5.0
+
+    def _get_book_value(self, symbol: str) -> float:
+        """
+        ดึงค่า Book Value ต่อหุ้น
+        """
+        # นี่เป็น placeholder สำหรับการดึงข้อมูลจริง
+        return 50.0
+
+    def _get_net_income(self, symbol: str) -> float:
+        """
+        ดึงค่า Net Income
+        """
+        # นี่เป็น placeholder สำหรับการดึงข้อมูลจริง
+        return 1000000.0
+
+    def _get_equity(self, symbol: str) -> float:
+        """
+        ดึงค่า Total Equity
+        """
+        # นี่เป็น placeholder สำหรับการดึงข้อมูลจริง
+        return 5000000.0
+
+    def _calculate_rsi(self, prices: np.ndarray, period: int = 14) -> float:
+        """
+        คำนวณค่า Relative Strength Index (RSI)
+        """
+        delta = np.diff(prices)
+        up = delta.clip(min=0)
+        down = -1 * delta.clip(max=0)
+        avg_gain = np.mean(up[-period:])
+        avg_loss = np.mean(down[-period:])
+        rs = avg_gain / avg_loss if avg_loss != 0 else 0
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+
+    def _calculate_macd(self, prices: np.ndarray) -> float:
+        """
+        คำนวณค่า Moving Average Convergence Divergence (MACD)
+        """
+        exp1 = pd.Series(prices).ewm(span=12, adjust=False).mean()
+        exp2 = pd.Series(prices).ewm(span=26, adjust=False).mean()
+        macd = exp1 - exp2
+        signal = macd.ewm(span=9, adjust=False).mean()
+        return macd.iloc[-1] - signal.iloc[-1]
+
+    def _calculate_bollinger_bands(self, prices: np.ndarray, period: int = 20) -> Dict[str, float]:
+        """
+        คำนวณค่า Bollinger Bands
+        """
+        sma = np.mean(prices[-period:])
+        std = np.std(prices[-period:])
+        upper_band = sma + (2 * std)
+        lower_band = sma - (2 * std)
+        return {'upper_band': upper_band, 'lower_band': lower_band}
+
+    def _analyze_industry_specifics(self, text: str, industry: str, symbol: Optional[str]) -> Dict[str, Any]:
+        """
+        วิเคราะห์ปัจจัยเฉพาะของอุตสาหกรรม
+        """
+        print("\nกำลังวิเคราะห์ปัจจัยเฉพาะของอุตสาหกรรม...")
+        # หาบริษัทที่คล้ายกัน
+        peer_companies = self._find_similar_companies(text, symbol)
+        if symbol and symbol in peer_companies:
+            peer_companies.remove(symbol)  # เอาบริษัทที่เราวิเคราะห์ออก
+
+        return {
+            'study_topics': self._get_study_topics(industry),
+            'peer_companies': peer_companies,
+        }
+
+    def _find_similar_companies(self, text: str, symbol: Optional[str]) -> List[str]:
+        """
+        หาบริษัทที่คล้ายกันโดยใช้ Typhoon API และ NLP
+        """
+        if not self.api_key:
+            print("ไม่สามารถหาบริษัทที่คล้ายกันได้เนื่องจากไม่ได้ตั้งค่า Typhoon API Key")
+            return []
+
+        print("\nกำลังหาบริษัทที่คล้ายกันโดยใช้ Typhoon API...")
+        if symbol:
+            prompt = f"สำหรับบริษัทที่มีชื่อสัญลักษณ์ {symbol} กรุณาระบุชื่อบริษัทที่คล้ายกันในอุตสาหกรรมเดียวกันพร้อมสัญลักษณ์หุ้นของพวกเขา"
+        else:
+            prompt = f"จากข้อมูลต่อไปนี้ กรุณาระบุชื่อบริษัทที่คล้ายกันในอุตสาหกรรมเดียวกันพร้อมสัญลักษณ์หุ้นของพวกเขา:\n\n{text[:2000]}"
+
+        response = self._call_typhoon_api(prompt)
+        if response:
+            content = response['choices'][0]['message']['content']
+            print(f"\nคำตอบจาก Typhoon API:\n{content}")
+            # สกัดสัญลักษณ์หุ้นจากคำตอบ
+            stock_symbols = self._extract_stock_symbols(content)
+            print(f"\nสัญลักษณ์หุ้นที่พบ: {stock_symbols}")
+            return stock_symbols
+        return []
+
+    def _extract_stock_symbols(self, text: str) -> List[str]:
+        """
+        สกัดสัญลักษณ์หุ้นจากข้อความโดยใช้ regex
+        """
+        pattern = r'\b[A-Z]{1,5}(?:\.BK)?\b'
+        symbols = re.findall(pattern, text)
+        # ลบสัญลักษณ์ซ้ำ
+        symbols = list(set(symbols))
+        return symbols
+
+    def _get_study_topics(self, industry: str) -> List[str]:
+        """
+        ดึงหัวข้อที่ควรศึกษาเพิ่มเติมตามอุตสาหกรรม
+        """
+        topics = {
+            'ธนาคาร': ['การจัดการความเสี่ยงทางการเงิน', 'กฎระเบียบของธนาคารกลาง'],
+            'เทคโนโลยี': ['นวัตกรรมใหม่', 'การแข่งขันในตลาด'],
+            # เพิ่มหัวข้อสำหรับอุตสาหกรรมอื่น ๆ ตามต้องการ
+        }
+        return topics.get(industry, ['ศึกษาภาพรวมของอุตสาหกรรมเพิ่มเติม'])
+# models.py
+
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, List
+import numpy as np
+
+@dataclass
+class FinancialMetrics:
+    """
+    คลาสสำหรับเก็บตัวชี้วัดทางการเงินต่าง ๆ
+    """
+    basic_metrics: Dict[str, float]
+    technical_indicators: Dict[str, Any]
+    risk_metrics: Dict[str, float]
+    statistical_metrics: Dict[str, Any]
+
+@dataclass
+class IndustryAnalysis:
+    """
+    คลาสสำหรับเก็บข้อมูลการวิเคราะห์อุตสาหกรรม
+    """
+    industry_type: str
+    key_indicators: List[str]
+    study_topics: List[str]
+    peer_companies: List[str]
+    industry_metrics: Dict[str, float]
+
+@dataclass
+class FinancialData:
+    """
+    คลาสสำหรับเก็บข้อมูลทางการเงินของหุ้น
+    """
+    symbol: str
+    prices: np.ndarray
+    returns: np.ndarray
+    dates: np.ndarray
+    volume: np.ndarray
+    market_cap: float
+    sector: str
+    financial_metrics: Optional[FinancialMetrics] = None# market_data.py
+
+import yfinance as yf
+from typing import Optional
+from models import FinancialData
+import numpy as np
+
+class MarketData:
+    """
+    คลาสสำหรับดึงข้อมูลตลาดหุ้น
+    """
+    def __init__(self):
+        self.market_index = "^SET.BK"  # ดัชนีตลาดหลักทรัพย์ของไทย
+        self.cache = {}  # แคชสำหรับเก็บข้อมูลหุ้นที่ดึงมาแล้ว
+
+    def get_stock_data(self, symbol: str, period: str = "1y") -> Optional[FinancialData]:
+        """
+        ดึงข้อมูลหุ้นสำหรับสัญลักษณ์ที่ระบุและช่วงเวลา
+        """
+        print(f"\nดึงข้อมูลหุ้นสำหรับ {symbol}")
+        try:
+            # ตรวจสอบว่ามีข้อมูลในแคชหรือไม่
+            if symbol in self.cache:
+                print(f"ใช้ข้อมูลที่แคชไว้สำหรับ {symbol}")
+                return self.cache[symbol]
+
+            # ดึงข้อมูลหุ้นจาก yfinance
+            stock = yf.Ticker(symbol)
+            hist = stock.history(period=period)
+
+            # ตรวจสอบว่ามีข้อมูลหรือไม่
+            if hist.empty:
+                raise ValueError(f"ไม่พบข้อมูลสำหรับ {symbol}")
+
+            # ดึงข้อมูลเพิ่มเติมเกี่ยวกับหุ้น
+            info = stock.info
+            data = FinancialData(
+                symbol=symbol,
+                prices=hist['Close'].values,
+                returns=hist['Close'].pct_change().dropna().values,
+                dates=hist.index.values,
+                volume=hist['Volume'].values,
+                market_cap=info.get('marketCap', 0),
+                sector=info.get('sector', 'Unknown')
+            )
+
+            # เก็บข้อมูลในแคช
+            self.cache[symbol] = data
+            print(f"ดึงข้อมูลสำเร็จสำหรับ {symbol}")
+            return data
+
+        except Exception as e:
+            print(f"Error fetching data for {symbol}: {e}")
+            return Noneimport os
+import uvicorn
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
+from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+from set_smart_analyzer import SetSmartAnalyzer
+
+from services import AdvancedFinancialAnalyzer
+from fastapi.middleware.cors import CORSMiddleware
+
+
+# โหลดตัวแปรสภาพแวดล้อม
+load_dotenv()
+typhoon_api_key = os.getenv('TYPHOON_API_KEY')
+setsmart_api_key = os.getenv('SETSMART_API_KEY')
+
+# Debugging: แสดง API Key ที่โหลดได้
+print(f"TYPHOON_API_KEY: {typhoon_api_key}")
+print(f"SETSMART_API_KEY: {setsmart_api_key}")
+
+# ตรวจสอบว่า API Key ถูกต้องหรือไม่
+if not typhoon_api_key or not setsmart_api_key:
+    raise Exception("API Key สำหรับ Typhoon หรือ SETSMART ยังไม่ได้ตั้งค่าในไฟล์ .env")
+
+# สร้าง instance ของ SetSmartAnalyzer และ AdvancedFinancialAnalyzer
+smart_analyzer = SetSmartAnalyzer(api_key=setsmart_api_key)
+analyzer = AdvancedFinancialAnalyzer(api_key=typhoon_api_key)
+
+# ----------------- กำหนดค่าและสร้างแอป FastAPI -----------------
+
+app = FastAPI()
+
+# เพิ่ม Middleware สำหรับ CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ตั้งค่าเส้นทางสำหรับเทมเพลต
+templates = Jinja2Templates(directory="templates")
+
+# ----------------- Endpoint สำหรับหน้าเว็บหลัก -----------------
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    """
+    แสดงหน้าเว็บหลักสำหรับการทดสอบการใช้งาน
+    """
+    return templates.TemplateResponse("index.html", {"request": request})
+
+# ----------------- Endpoint สำหรับการวิเคราะห์ (GET และ POST) -----------------
+
+@app.post("/analyze")
+async def analyze_endpoint(request: Request, file: UploadFile = File(...)):
+    """
+    Endpoint สำหรับรับไฟล์ PDF และส่งกลับผลการวิเคราะห์
+    """
+    # บันทึกไฟล์ชั่วคราว
+    contents = await file.read()
+    temp_file_path = f"temp_{file.filename}"
+    with open(temp_file_path, 'wb') as f:
+        f.write(contents)
+
+    # เรียกใช้ฟังก์ชัน generate_investment_report
+    try:
+        result = analyzer.generate_investment_report(temp_file_path)
+        # ลบไฟล์ชั่วคราว
+        os.remove(temp_file_path)
+        return {"result": result}
+    except Exception as e:
+        # ลบไฟล์ชั่วคราว
+        os.remove(temp_file_path)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analyze")
+async def analyze_get_endpoint(request: Request, file_url: str):
+    """
+    Endpoint สำหรับรับ URL ของไฟล์ PDF และส่งกลับผลการวิเคราะห์ (GET)
+    """
+    # ดาวน์โหลดไฟล์จาก URL
+    try:
+        response = requests.get(file_url)
+        response.raise_for_status()
+        temp_file_path = "temp_downloaded.pdf"
+        with open(temp_file_path, 'wb') as f:
+            f.write(response.content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"ไม่สามารถดาวน์โหลดไฟล์: {e}")
+
+    # เรียกใช้ฟังก์ชัน generate_investment_report
+    try:
+        result = analyzer.generate_investment_report(temp_file_path)
+        # ลบไฟล์ชั่วคราว
+        os.remove(temp_file_path)
+        return {"result": result}
+    except Exception as e:
+        # ลบไฟล์ชั่วคราว
+        os.remove(temp_file_path)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ----------------- Endpoint สำหรับการแชทกับ Typhoon API -----------------
+
+@app.post("/chat")
+async def chat_with_typhoon(request: Request):
+    """
+    Endpoint สำหรับการแชทกับ Typhoon API
+    """
+    data = await request.json()
+    message = data.get('message')
+    if not message:
+        raise HTTPException(status_code=400, detail="กรุณาส่งข้อความเพื่อแชท")
+
+    response = analyzer.chat_with_typhoon(message)
+    return {"response": response}
+    
+@app.get("/smart-stocks")
+async def get_smart_stocks():
+    """
+    ดึงรายชื่อหุ้น SET SMART
+    """
+    try:
+        symbols = smart_analyzer.get_smart_symbols()
+        return {
+            "status": "success",
+            "count": len(symbols),
+            "symbols": symbols
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analyze-smart-stocks")
+async def analyze_smart_stocks():
+    """
+    วิเคราะห์หุ้นทั้งหมดใน SET SMART
+    """
+    try:
+        results = smart_analyzer.analyze_smart_stocks()
+        return {
+            "status": "success",
+            "data": results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ----------------- รันแอปพลิเคชัน -----------------
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=8000,
+        workers=81,  # (2 x 40) + 1
+        loop="uvloop",  # ใช้ uvloop สำหรับประสิทธิภาพที่ดีขึ้น
+        http="httptools",  # ใช้ httptools สำหรับ HTTP parsing ที่เร็วขึ้น
+        limit_concurrency=1000,  # จำกัดจำนวน concurrent connections
+        backlog=2048,  # ขนาดคิวการเชื่อมต่อ
+        timeout_keep_alive=30,  # timeout สำหรับ keep-alive connections
+    ) 

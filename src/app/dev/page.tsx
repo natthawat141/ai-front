@@ -45,6 +45,7 @@ const DevDocumentation = () => {
             <li>• Tesseract OCR Engine</li>
             <li>• joeddav/xlm-roberta-large-xnli</li>
             <li>• typhoon-v1.5-instruct</li>
+            <li>• Regex and typhoon </li>
           </ul>
         </div>
       </div>

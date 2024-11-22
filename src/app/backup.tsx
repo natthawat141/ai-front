@@ -56,7 +56,7 @@ export default function ChatPage() {
     formData.append('file', file)
 
     try {
-      const response = await fetch('https://xawfeg5xdu3cnj-7860.proxy.runpod.net/analyze', {
+      const response = await fetch('https://tfzr12pze1qa4p-7860.proxy.runpod.net/analyze', {
         method: 'POST',
         body: formData,
       })
@@ -120,7 +120,7 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('https://xawfeg5xdu3cnj-7860.proxy.runpod.net/chat', {
+      const response = await fetch('https://tfzr12pze1qa4p-7860.proxy.runpod.net/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
