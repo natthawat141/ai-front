@@ -3,8 +3,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiVolume2, FiVolumeX } from 'react-icons/fi'
-const { useSpeechSynthesis } = require('react-speech-kit') as any;
-
 
 interface TextToSpeechProps {
   text: string
@@ -18,33 +16,38 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
   lang = 'th-TH'
 }) => {
   const [isPlaying, setIsPlaying] = useState(false)
-  const { speak, cancel, speaking, voices } = useSpeechSynthesis()
 
   const handleSpeak = () => {
     if (!text) return
 
     if (isPlaying) {
-      cancel()
+      window.speechSynthesis.cancel()
       setIsPlaying(false)
       return
     }
 
-    // หาเสียงภาษาไทย
-    const thaiVoice = voices.find(voice => 
-      voice.lang === 'th-TH' || 
-      voice.lang.startsWith('th')
+    // Create speech synthesis
+    const speech = new SpeechSynthesisUtterance(text)
+    speech.lang = lang
+    speech.rate = 1.0
+    speech.pitch = 1.0
+    speech.volume = 1.0
+
+    // Get voices
+    const voices = window.speechSynthesis.getVoices()
+    const selectedVoice = voices.find(voice => 
+      lang === 'th-TH' 
+        ? (voice.lang === 'th-TH' || voice.lang.startsWith('th'))
+        : (voice.lang === 'en-US' || voice.lang.startsWith('en'))
     )
 
-    speak({ 
-      text,
-      voice: thaiVoice,
-      rate: 1.0,
-      pitch: 1.0,
-      volume: 1.0,
-      lang,
-      onEnd: () => setIsPlaying(false)
-    })
+    if (selectedVoice) {
+      speech.voice = selectedVoice
+    }
 
+    speech.onend = () => setIsPlaying(false)
+    
+    window.speechSynthesis.speak(speech)
     setIsPlaying(true)
   }
 
