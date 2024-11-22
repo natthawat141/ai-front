@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { FiVolume2, FiVolumeX } from 'react-icons/fi'
 const { useSpeechSynthesis } = require('react-speech-kit') as any;
 
+
 interface TextToSpeechProps {
   text: string
   className?: string
