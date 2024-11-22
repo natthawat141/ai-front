@@ -1,20 +1,13 @@
+// src/app/components/analysis/TextToSpeech.tsx
+
 'use client'
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiVolume2, FiVolumeX } from 'react-icons/fi'
 
-interface TextToSpeechProps {
-  text: string
-  className?: string
-  lang?: 'th-TH' | 'en-US'
-}
-
-export const TextToSpeech: React.FC<TextToSpeechProps> = ({
-  text,
-  className = "",
-  lang = 'th-TH'
-}) => {
+export const TextToSpeech = (props: any) => {
+  const { text, className = "", lang = 'th-TH' } = props
   const [isPlaying, setIsPlaying] = useState(false)
 
   const handleSpeak = () => {
@@ -26,25 +19,11 @@ export const TextToSpeech: React.FC<TextToSpeechProps> = ({
       return
     }
 
-    // Create speech synthesis
     const speech = new SpeechSynthesisUtterance(text)
     speech.lang = lang
     speech.rate = 1.0
     speech.pitch = 1.0
     speech.volume = 1.0
-
-    // Get voices
-    const voices = window.speechSynthesis.getVoices()
-    const selectedVoice = voices.find(voice => 
-      lang === 'th-TH' 
-        ? (voice.lang === 'th-TH' || voice.lang.startsWith('th'))
-        : (voice.lang === 'en-US' || voice.lang.startsWith('en'))
-    )
-
-    if (selectedVoice) {
-      speech.voice = selectedVoice
-    }
-
     speech.onend = () => setIsPlaying(false)
     
     window.speechSynthesis.speak(speech)
