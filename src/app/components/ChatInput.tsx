@@ -1,44 +1,60 @@
-
+//app/components/ChatInput.tsx
 'use client'
+
 import { IoSend } from 'react-icons/io5'
-import { FiRefreshCw } from 'react-icons/fi'
+import { FiUpload } from 'react-icons/fi'
 import { motion } from 'framer-motion'
 
 interface ChatInputProps {
   input: string
   setInput: (value: string) => void
   loading: boolean
+  uploading: boolean
   uploadedFile: any
-  handleReupload: () => void
   sendMessage: (e: React.FormEvent) => void
+  onFileSelect: (file: File) => void
 }
 
 export const ChatInput = ({
   input,
   setInput,
   loading,
+  uploading,
   uploadedFile,
-  handleReupload,
-  sendMessage
+  sendMessage,
+  onFileSelect
 }: ChatInputProps) => {
   return (
     <div className="border-t border-white/10 p-4 bg-black/20 backdrop-blur-sm">
       <form onSubmit={sendMessage} className="max-w-4xl mx-auto flex gap-2">
-        {uploadedFile && (
-          <motion.button
-            type="button"
-            onClick={handleReupload}
+        {!uploadedFile && (
+          <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center justify-center flex-shrink-0 w-12 h-12 
-              bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl 
-              transition-all group backdrop-blur-sm"
-            title="Upload new file"
           >
-            <FiRefreshCw className="w-5 h-5 text-white/70 group-hover:text-cyan-400" />
-          </motion.button>
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={(e) => e.target.files?.[0] && onFileSelect(e.target.files[0])}
+              className="hidden"
+              id="file-upload"
+            />
+            <label
+              htmlFor="file-upload"
+              className="flex items-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 
+                border border-white/10 rounded-xl cursor-pointer transition-all group backdrop-blur-sm
+                disabled:opacity-50 disabled:cursor-not-allowed h-[52px]"
+            >
+              <FiUpload className={`w-5 h-5 text-white group-hover:text-cyan-400 
+                ${uploading ? 'animate-spin' : ''}`} 
+              />
+              <span className="text-white/90 group-hover:text-white font-medium">
+                {uploading ? 'Analyzing...' : 'PDF'}
+              </span>
+            </label>
+          </motion.div>
         )}
-
+        
         <div className="relative flex-1">
           <input
             type="text"
@@ -49,7 +65,7 @@ export const ChatInput = ({
               focus:outline-none focus:ring-2 focus:ring-cyan-500/30
               placeholder-white/50 text-white backdrop-blur-sm"
           />
-          <button 
+          <button
             type="submit"
             disabled={loading}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-2

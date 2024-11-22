@@ -1,4 +1,10 @@
+// app/page.tsx
 'use client'
+
+/**
+ * Main Page Component
+ * Implements AI Financial Assistant with chat and PDF analysis capabilities
+ */
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -6,8 +12,9 @@ import { FiUpload, FiAlertCircle } from 'react-icons/fi'
 import { ChatInput } from './components/ChatInput'
 import AnalysisResult from './components/analysis/AnalysisResult'
 import type { AnalysisData } from './components/analysis/types'
+import {TextToSpeech} from './components/analysis/TextToSpeech'  // เพิ่ม import
 
-// Types
+// Type Definitions
 interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -22,9 +29,9 @@ interface UploadedFile {
   timestamp: Date
 }
 
-// Components
+// Loading Component
 const LoadingIndicator = () => (
-  <motion.div 
+  <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     className="flex justify-start"
@@ -35,8 +42,9 @@ const LoadingIndicator = () => (
       <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce delay-200" />
     </div>
   </motion.div>
-);
+)
 
+// Error Display Component
 const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
   <motion.div
     initial={{ opacity: 0 }}
@@ -46,24 +54,34 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
     <FiAlertCircle className="w-5 h-5" />
     <p>{message}</p>
   </motion.div>
-);
+)
 
-export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+/**
+ * Main Page Component
+ * Contains all the logic for chat, file upload, and UI management
+ */
+export default function Page() {
+  // State Management
+  const [messages, setMessages] = useState<Message[]>([])        // Chat messages
+  const [input, setInput] = useState('')                        // Input field
+  const [loading, setLoading] = useState(false)                 // Message loading
+  const [uploading, setUploading] = useState(false)            // File upload loading
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)  // Current file
+  const [error, setError] = useState<string | null>(null)      // Error state
 
+  // Refs
+  const messagesEndRef = useRef<HTMLDivElement>(null)          // For auto-scroll
+  const fileInputRef = useRef<HTMLInputElement>(null)          // File input reference
+
+  // Auto-scroll effect
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Validation
+  /**
+   * File Validation
+   * Checks file type and size constraints
+   */
   const validateFile = (file: File): boolean => {
     if (!file.type.includes('pdf')) {
       setError('Please upload a PDF file')
@@ -76,6 +94,10 @@ export default function ChatPage() {
     return true
   }
 
+  /**
+   * File Upload Handler
+   * Processes PDF upload and triggers analysis
+   */
   const handleFileUpload = async (file: File) => {
     if (!file || !validateFile(file)) return
     setError(null)
@@ -90,37 +112,35 @@ export default function ChatPage() {
         body: formData,
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
 
       const data = await response.json()
-      
-      if (!data.result) {
-        throw new Error('Invalid response format')
-      }
+      if (!data.result) throw new Error('Invalid response format')
 
+      // Update states with successful upload
       setUploadedFile({
         name: file.name,
         timestamp: new Date()
       })
 
-      setMessages(prev => [...prev, 
-        {
-          id: crypto.randomUUID(),
-          role: 'user',
-          content: `Uploaded: ${file.name}`,
-          timestamp: new Date()
-        },
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: 'Analysis Result:',
-          timestamp: new Date(),
-          analysis: data.result
-        }
+      // Add messages for file upload and analysis
+      setMessages(prev => [...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: `Uploaded: ${file.name}`,
+        timestamp: new Date()
+      },
+      {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'Analysis Result:',
+        timestamp: new Date(),
+        analysis: data.result
+      }
       ])
     } catch (error) {
+      // Error handling
       console.error('Error:', error)
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
       setError(errorMessage)
@@ -136,16 +156,33 @@ export default function ChatPage() {
     }
   }
 
+  /**
+   * File Selection Handler
+   * Bridge between file selection and upload
+   */
+  const handleFileSelect = async (file: File) => {
+    await handleFileUpload(file)
+  }
+
+  /**
+   * Re-upload Handler
+   * Triggers new file selection
+   */
   const handleReupload = () => {
     setError(null)
     fileInputRef.current?.click()
   }
 
+  /**
+   * Message Send Handler
+   * Processes user messages and gets AI responses
+   */
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
     setError(null)
 
+    // Create and add user message
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -158,24 +195,19 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
+      // Send message to API
       const response = await fetch('https://xawfeg5xdu3cnj-7860.proxy.runpod.net/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
 
       const data = await response.json()
-      
-      if (!data.response) {
-        throw new Error('Invalid response format')
-      }
+      if (!data.response) throw new Error('Invalid response format')
 
+      // Add AI response
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -183,6 +215,7 @@ export default function ChatPage() {
         timestamp: new Date()
       }])
     } catch (error) {
+      // Error handling
       console.error('Error:', error)
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
       setError(errorMessage)
@@ -204,11 +237,11 @@ export default function ChatPage() {
       <div className="absolute inset-0 bg-[radial-gradient(40%_40%_at_50%_50%,rgba(56,189,248,0.13)_0%,rgba(56,189,248,0)_100%)]" />
       <div className="absolute top-20 right-20 w-40 h-40 bg-indigo-600/10 rounded-full blur-[100px] animate-pulse" />
       <div className="absolute bottom-40 left-20 w-56 h-56 bg-cyan-500/10 rounded-full blur-[120px] animate-pulse" />
-      
+
       {/* Error Display */}
       <AnimatePresence>
         {error && (
-          <motion.div 
+          <motion.div
             className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -219,40 +252,9 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* Upload Button */}
-      <AnimatePresence>
-        {!uploadedFile && (
-          <motion.div 
-            className="absolute top-4 right-4 z-10"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 
-                border border-white/10 rounded-lg transition-all group backdrop-blur-sm
-                disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FiUpload className={`w-5 h-5 text-white group-hover:text-cyan-400 
-                ${uploading ? 'animate-spin' : ''}`} 
-              />
-              <span className="text-white/90 group-hover:text-white font-medium">
-                {uploading ? 'Analyzing...' : 'Upload PDF'}
-              </span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
+
+
+      {/* Messages Area */}
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4 relative">
         {messages.length === 0 ? (
@@ -273,15 +275,15 @@ export default function ChatPage() {
               key={message.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
             >
-              <div className={`max-w-[80%] p-4 rounded-xl ${
-                message.role === 'user' 
+              {/* ข้อความ */}
+              <div className={`max-w-[80%] p-4 rounded-xl ${message.role === 'user'
                   ? 'bg-gradient-to-r from-cyan-500/90 to-blue-600/90 text-white backdrop-blur-sm'
                   : message.error
-                  ? 'bg-red-500/10 backdrop-blur-sm border border-red-500/20 text-red-400'
-                  : 'bg-white/5 backdrop-blur-sm border border-white/10 text-white/90'
-              }`}>
+                    ? 'bg-red-500/10 backdrop-blur-sm border border-red-500/20 text-red-400'
+                    : 'bg-white/5 backdrop-blur-sm border border-white/10 text-white/90'
+                }`}>
                 {message.analysis ? (
                   <AnalysisResult data={message.analysis} />
                 ) : (
@@ -290,23 +292,38 @@ export default function ChatPage() {
                   </p>
                 )}
               </div>
+
+              {/* ปุ่มเล่นเสียง - แสดงเฉพาะข้อความจาก assistant */}
+              {message.role === 'assistant' && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-2 mr-2"
+                >
+                  <TextToSpeech
+                    text={message.analysis ? (message.analysis.ai_recommendations || '') : message.content}
+                    className="bg-white/5 hover:bg-white/10 rounded-full p-2"
+                  />
+                </motion.div>
+              )}
             </motion.div>
           ))
         )}
-        
         {(loading || uploading) && <LoadingIndicator />}
         <div ref={messagesEndRef} />
       </div>
-
       {/* Chat Input */}
       <ChatInput
         input={input}
         setInput={setInput}
         loading={loading}
+        uploading={uploading}
         uploadedFile={uploadedFile}
-        handleReupload={handleReupload}
         sendMessage={sendMessage}
+        onFileSelect={handleFileSelect}
       />
+      
     </div>
+    
   )
 }

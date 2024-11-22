@@ -1,17 +1,22 @@
+//app/components/analysis/AnalysisResult.tsx
+
+
 'use client'
 
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Line } from 'react-chartjs-2';
-import { 
-  FiTrendingUp, 
-  FiAlertCircle, 
-  FiBarChart2, 
+import { TextToSpeech } from './TextToSpeech'  // เพิ่ม import
+
+import {
+  FiTrendingUp,
+  FiAlertCircle,
+  FiBarChart2,
   FiTarget,
   FiDollarSign,
   FiPercent,
   FiActivity,
-  FiPieChart 
+  FiPieChart
 } from 'react-icons/fi';
 import {
   Chart as ChartJS,
@@ -96,7 +101,7 @@ const formatCurrency = (value: number | null): string => {
 
 const formatDate = (timestamp: number): string => {
   try {
-    return new Date(timestamp/1000000).toLocaleDateString('th-TH', {
+    return new Date(timestamp / 1000000).toLocaleDateString('th-TH', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -148,7 +153,7 @@ class ChartErrorBoundary extends React.Component<ChartErrorBoundaryProps, ChartE
 }
 
 // Main Component
-const AnalysisResult: React.FC<{ data: AnalysisData }> = ({ 
+const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
   data = {
     symbol: 'Unknown',
     industry: 'Unknown',
@@ -161,21 +166,22 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
 }) => {
   // Type Guards
   const hasValidStockData = (data: AnalysisData): data is AnalysisData & { stock_data: StockData } => {
-    return data.stock_data !== null && 
-           Array.isArray(data.stock_data.dates) && 
-           Array.isArray(data.stock_data.prices) &&
-           data.stock_data.dates.length > 0 &&
-           data.stock_data.prices.length === data.stock_data.dates.length;
+    return data.stock_data !== null &&
+      Array.isArray(data.stock_data.dates) &&
+      Array.isArray(data.stock_data.prices) &&
+      data.stock_data.dates.length > 0 &&
+      data.stock_data.prices.length === data.stock_data.dates.length;
   };
 
   const hasFinancialMetrics = (data: AnalysisData): boolean => {
     return data.financial_metrics !== null;
   };
 
+  
   // Chart Configuration
   const chartData = React.useMemo(() => {
     if (!hasValidStockData(data)) return null;
-    
+
     return {
       labels: data.stock_data.dates.map(formatDate),
       datasets: [{
@@ -221,12 +227,12 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
     }
   }), []);
 
-  const MetricCard: React.FC<MetricCardProps> = ({ 
-    icon: Icon, 
-    title, 
-    value, 
-    change, 
-    className = "" 
+  const MetricCard: React.FC<MetricCardProps> = ({
+    icon: Icon,
+    title,
+    value,
+    change,
+    className = ""
   }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -257,7 +263,8 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
   }
 
   return (
-    <motion.div 
+    
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="space-y-6 p-6"
@@ -276,7 +283,7 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
 
       {/* Price Chart */}
       {chartData && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/5 backdrop-blur-sm p-4 rounded-xl border border-white/10"
@@ -290,48 +297,51 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
         </motion.div>
       )}
 
-    {/* Metrics Grid */}
-{data.financial_metrics && (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-  >
-    <MetricCard
-      icon={FiDollarSign}
-      title="Current Price"
-      value={formatCurrency(data.financial_metrics?.basic_metrics?.price ?? null)}
-    />
-    <MetricCard
-      icon={FiPieChart}
-      title="P/E Ratio"
-      value={formatNumber(data.financial_metrics?.basic_metrics?.pe_ratio ?? null)}
-    />
-    <MetricCard
-      icon={FiActivity}
-      title="RSI"
-      value={formatNumber(data.financial_metrics?.technical_indicators?.rsi ?? null)}
-    />
-    <MetricCard
-      icon={FiPercent}
-      title="Volatility"
-      value={`${formatNumber(
-        data.financial_metrics?.risk_metrics?.volatility !== null
-          ? data.financial_metrics.risk_metrics.volatility * 100
-          : null
-      )}%`}
-    />
-  </motion.div>
-)}
+      {/* Metrics Grid */}
+      {data.financial_metrics && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          <MetricCard
+            icon={FiDollarSign}
+            title="Current Price"
+            value={formatCurrency(data.financial_metrics?.basic_metrics?.price ?? null)}
+          />
+          <MetricCard
+            icon={FiPieChart}
+            title="P/E Ratio"
+            value={formatNumber(data.financial_metrics?.basic_metrics?.pe_ratio ?? null)}
+          />
+          <MetricCard
+            icon={FiActivity}
+            title="RSI"
+            value={formatNumber(data.financial_metrics?.technical_indicators?.rsi ?? null)}
+          />
+          <MetricCard
+            icon={FiPercent}
+            title="Volatility"
+            value={`${formatNumber(
+              data.financial_metrics?.risk_metrics?.volatility !== null
+                ? data.financial_metrics.risk_metrics.volatility * 100
+                : null
+            )}%`}
+          />
+        </motion.div>
+      )}
 
       {/* AI Analysis */}
       {data.ai_recommendations && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/5 backdrop-blur-sm p-6 rounded-xl border border-white/10"
         >
-          <h3 className="text-white/90 mb-4">AI Analysis</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-white/90">AI Analysis</h3>
+            <TextToSpeech text={data.ai_recommendations} />
+          </div>
           <div className="prose prose-invert max-w-none">
             <p className="text-white/80 whitespace-pre-wrap">
               {data.ai_recommendations}
@@ -342,7 +352,7 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
 
       {/* Peer Companies */}
       {data.peer_companies.length > 0 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/5 backdrop-blur-sm p-6 rounded-xl border border-white/10"
@@ -350,7 +360,7 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
           <h3 className="text-white/90 mb-4">Peer Companies</h3>
           <div className="flex flex-wrap gap-2">
             {data.peer_companies.map(({ id, name }) => (
-              <span 
+              <span
                 key={id}
                 className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-full text-sm"
               >
@@ -360,6 +370,7 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
           </div>
         </motion.div>
       )}
+
 
       {/* Show error if no meaningful data */}
       {!chartData && !hasFinancialMetrics(data) && !data.ai_recommendations && (
@@ -371,6 +382,8 @@ const AnalysisResult: React.FC<{ data: AnalysisData }> = ({
         </div>
       )}
     </motion.div>
+    
+
   );
 };
 
