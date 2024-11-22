@@ -35,3 +35,16 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 # ai-front
+
+
+# 1. ติดตั้ง Vercel CLI
+npm i -g vercel
+
+# 2. Login (ครั้งแรก)
+vercel login
+
+# 3. Deploy
+vercel
+
+# 4. Deploy to production
+vercel --prod
