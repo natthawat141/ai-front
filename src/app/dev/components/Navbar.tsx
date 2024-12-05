@@ -15,10 +15,10 @@ import {
 
 const navigationItems = [
   { id: 'doc', href: "/dev", icon: FiBook, label: "Documentation" },
-  { id: 'api', href: "/api-docs", icon: FiCode, label: "API " },
+  { id: 'api', href: "/apis", icon: FiCode, label: "API " },
   { id: 'arch', href: "/architecture", icon: FiServer, label: "Architecture" },
-  { id: 'sys', href: "/system", icon: FiCpu, label: "System" },
-  { id: 'analysis', href: "/analysis", icon: FiLayout, label: "Analysis" }
+  // { id: 'sys', href: "/system", icon: FiCpu, label: "System" },
+  // { id: 'analysis', href: "/analysis", icon: FiLayout, label: "Analysis" }
 ];
 
 const Navbar = () => {

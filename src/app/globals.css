@@ -19,3 +19,18 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.avatar-paused {
+  animation: none;
+  opacity: 0.8;
+}
+
+.avatar-speaking {
+  animation: avatar-pulse 2s infinite;
+}
+
+@keyframes avatar-pulse {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}

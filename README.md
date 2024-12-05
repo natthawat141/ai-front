@@ -48,3 +48,12 @@ vercel
 
 # 4. Deploy to production
 vercel --prod
+
+
+git commit -m "Initial commit"
+
+git remote -v
+
+git branch 
+
+git push origin 
