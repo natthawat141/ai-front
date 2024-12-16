@@ -10,8 +10,6 @@ git push origin master
 
 git remote -v
 
-git remote set-url origin https://github.com/natthawat141/VGi.git
-git remote add origin https://github.com/natthawat141/VGi.git
 
 
 git branch

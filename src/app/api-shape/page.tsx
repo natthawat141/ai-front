@@ -72,7 +72,7 @@ const APITestPage = () => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('https://xawfeg5xdu3cnj-7860.proxy.runpod.net/analyze', {
+      const response = await fetch('https://1i6qnvu31fqaca-7860.proxy.runpod.net/analyze', {
         method: 'POST',
         body: formData,
       });
