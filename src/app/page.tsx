@@ -274,7 +274,7 @@ const [showPdfSelector, setShowPdfSelector] = useState(true);
      </AnimatePresence>
      
       {/* QuickPdfSelector with toggle button */}
-      <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-10 ">
+      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 ">
       <AnimatePresence>
         {showPdfSelector && (
           <motion.div
