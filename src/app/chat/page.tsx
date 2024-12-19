@@ -392,7 +392,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input Section */}
-      <footer className="p-4 bg-black/20 backdrop-blur-sm border-t border-cyan-500/20" role="contentinfo">
+     
         <ChatInput
           input={input}
           setInput={setInput}
@@ -403,7 +403,7 @@ export default function ChatPage() {
           onFileSelect={handleFileSelect}
           aria-label="Chat input section"
         />
-      </footer>
+      
     </div>
   );
 }
