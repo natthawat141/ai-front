@@ -251,7 +251,7 @@ const [showPdfSelector, setShowPdfSelector] = useState(true);
       setLoading(false)
     }
   }
-
+  
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-slate-950 via-[#020817] to-slate-950">
      {/* Background Effects */}
