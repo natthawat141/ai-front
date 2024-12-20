@@ -241,7 +241,7 @@ export default function ChatPage() {
         <main className="flex-1 flex flex-col lg:flex-row overflow-hidden" role="main" aria-live="polite">
           {/* Left Side - Avatar */}
           <section 
-            className="lg:w-1/3 h-[30vh] lg:h-full relative border-b lg:border-b-0 lg:border-r border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+            className="lg:w-1/3 h-[30vh] lg:h-full relative border-b lg:border-b-0 lg:border-r border-cyan-500/20"
             aria-label="Avatar Section"
           >
             <div className="absolute inset-0">
@@ -260,10 +260,7 @@ export default function ChatPage() {
   
           {/* Right Side - Chat */}
           <section className="lg:w-1/2 flex flex-col flex-1" aria-label="Chat Section">
-            <div
-              className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin hover:scrollbar-thumb-cyan-500/50 scrollbar-thumb-cyan-500/20 scrollbar-track-white/5 hover:scrollbar-track-white/10 transition-colors"
-              role="list"
-            >
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cyan-20 scrollbar-track-white-5 hover:scrollbar-thumb-cyan-50 hover:scrollbar-track-white-10 transition-colors">
               {messages.map((message) => (
                 <motion.div
                   key={message.id}
