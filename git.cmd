@@ -1,6 +1,10 @@
 git add .
 
-git commit -m "commit pls" 
+git commit -m "commit suscussful" 
 
 
-git push origin v1  
+git push origin main
+
+
+
+vercel --prod
