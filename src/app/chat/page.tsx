@@ -272,10 +272,10 @@ export default function ChatPage() {
                 <div className="flex flex-col gap-2 max-w-[90%] md:max-w-[75%]">
                   <div
                     className={`p-4 rounded-xl ${message.role === 'user'
-                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white'
-                        : message.error
-                          ? 'bg-red-500/10 border border-red-500/20 text-red-400'
-                          : 'bg-white/10 text-white/90 border border-cyan-500/20'
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white'
+                      : message.error
+                        ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                        : 'bg-white/10 text-white/90 border border-cyan-500/20'
                       }`}
                   >
                     {message.analysis ? (
@@ -322,7 +322,7 @@ export default function ChatPage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex justify-center"
+                className="flex justify-left"
                 role="status"
                 aria-live="polite"
               >
@@ -344,7 +344,7 @@ export default function ChatPage() {
       </main>
 
       {/* QuickPdfSelector with toggle button */}
-      <div className="absolute bottom-16 sm:bottom-24 left-1/2 -translate-x-1/2 z-10 mb-10">
+      <div className="absolute bottom-16 sm:bottom-24 left-1/2 -translate-x-1/2 z-10 mb-10 md:mb-0">
         <AnimatePresence>
           {showPdfSelector && (
             <motion.div
@@ -379,6 +379,7 @@ export default function ChatPage() {
           )}
         </motion.button>
       </div>
+
 
       {/* Input Section */}
 
