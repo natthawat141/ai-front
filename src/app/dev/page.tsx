@@ -43,6 +43,7 @@ const DevDocumentation = () => {
             <li>• Node.js {systemRequirements.environment.node}</li>
             <li>• {systemRequirements.hardware.ram}</li>
             <li>• Tesseract OCR Engine</li>
+            <li>• Nginx</li>
             <li>• joeddav/xlm-roberta-large-xnli</li>
             <li>• typhoon-v1.5-instruct</li>
             <li>• Regex and typhoon </li>
